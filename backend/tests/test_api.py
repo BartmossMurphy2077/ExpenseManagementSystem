@@ -1,21 +1,25 @@
-import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from app.main import app, get_db
 from app.models import Base
 
-# File-based SQLite DB for testing
-TEST_DB_PATH = "./data/test.db"
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# --------------------- Setup in-memory database ---------------------
+# Use StaticPool to ensure the same connection is used across sessions
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create tables initially
+# Create all tables once
 Base.metadata.create_all(bind=engine)
 
-# Override the dependency to use the test DB
+# Override FastAPI dependency to use the test database
 def override_get_db():
     db = TestingSessionLocal()
     try:
@@ -26,18 +30,15 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
-# Fixture to reset DB before each test
+# --------------------- Fixture to reset DB before each test ---------------------
 @pytest.fixture(autouse=True)
 def reset_db():
+    # Drop and recreate tables using the same connection
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
-    # Remove test DB file after all tests
-    if os.path.exists(TEST_DB_PATH):
-        os.remove(TEST_DB_PATH)
 
 # --------------------- API Tests ---------------------
-
 def test_create_expense_api():
     response = client.post(
         "/expenses",
