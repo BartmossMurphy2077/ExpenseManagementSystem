@@ -7,4 +7,14 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/data  # mount host folder to persist SQLite DB
+      - ./backend/data:/app/data
+
+  frontend:
+    build: ./frontend
+    container_name: expense_frontend
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_URL: http://backend:8000
+    depends_on:
+      - backend
