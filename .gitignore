@@ -1,2 +1,9 @@
 .idea
-.venv
+/backend/venv/
+/data/*.db
+__pycache__/
+*.pyc
+*.pyo
+*pyd
+*.log
+.env
