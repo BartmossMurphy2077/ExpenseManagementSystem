@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, date
 from app.schemas import ExpenseCreate, Expense, Tag
 
 def test_expense_create_schema():
@@ -8,7 +8,7 @@ def test_expense_create_schema():
         "amount": 20.0,
         "tags": ["food", "friends"],
         "type": "expense",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": date.today()
     }
     expense = ExpenseCreate(**data)
     assert expense.title == "Dinner"
@@ -21,7 +21,7 @@ def test_expense_response_schema():
         id="abc",
         title="Groceries",
         amount=50,
-        timestamp=datetime.utcnow(),
+        timestamp=date.today(),
         tags=[tag]
     )
     assert exp.tags[0].name == "food"

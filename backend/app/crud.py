@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
-from datetime import datetime
+from datetime import datetime, date
 
 def get_expenses(db: Session):
     return db.query(models.Expense).all()
@@ -16,13 +16,22 @@ def create_expense(db: Session, expense: schemas.ExpenseCreate):
             tag = models.Tag(name=tag_name)
             db.add(tag)
         tag_objects.append(tag)
+
+    # In create_expense:
+    ts = expense.timestamp
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts).date()  # convert to date
+    elif ts is None:
+        ts = date.today()  # just the date
+
     db_expense = models.Expense(
         title=expense.title,
         amount=expense.amount,
-        timestamp=expense.timestamp or datetime.utcnow(),
+        timestamp=ts,
         type=expense.type,
         tags=tag_objects
     )
+
     db.add(db_expense)
     db.commit()
     db.refresh(db_expense)
@@ -47,6 +56,14 @@ def update_expense(db: Session, expense_id: str, expense_data: schemas.ExpenseCr
     db.commit()
     db.refresh(expense)
     return expense
+
+def get_expenses_in_range(db: Session, start_date: date, end_date: date):
+    return (
+        db.query(models.Expense)
+        .filter(models.Expense.timestamp >= start_date)
+        .filter(models.Expense.timestamp <= end_date)
+        .all()
+    )
 
 def delete_expense(db: Session, expense_id: str):
     expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()

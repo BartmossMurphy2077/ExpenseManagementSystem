@@ -1,17 +1,17 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from . import models, schemas, crud
+from datetime import datetime, date
 import os
 
-# SQLite DB path (inside container)
+from app import models, schemas, crud
+
 db_path = os.environ.get("SQLITE_DB_PATH", "./data/expenses.db")
 DATABASE_URL = f"sqlite:///{db_path}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Expense Manager API")
@@ -31,6 +31,14 @@ def list_expenses(db: Session = Depends(get_db)):
 @app.post("/expenses", response_model=schemas.Expense)
 def add_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)):
     return crud.create_expense(db, expense)
+
+@app.get("/expenses/range", response_model=list[schemas.Expense])
+def list_expenses_in_range(
+    start_date: date = Query(..., description="Start date YYYY-MM-DD"),
+    end_date: date = Query(..., description="End date YYYY-MM-DD"),
+    db: Session = Depends(get_db)
+):
+    return crud.get_expenses_in_range(db, start_date, end_date)
 
 @app.get("/expenses/{expense_id}", response_model=schemas.Expense)
 def get_expense(expense_id: str, db: Session = Depends(get_db)):
