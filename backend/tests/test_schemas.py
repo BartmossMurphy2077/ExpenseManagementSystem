@@ -8,7 +8,7 @@ def test_expense_create_schema():
         "amount": 20.0,
         "tags": ["food", "friends"],
         "type": "expense",
-        "timestamp": date.today()
+        "timestamp": datetime.today()
     }
     expense = ExpenseCreate(**data)
     assert expense.title == "Dinner"
@@ -21,7 +21,7 @@ def test_expense_response_schema():
         id="abc",
         title="Groceries",
         amount=50,
-        timestamp=date.today(),
+        timestamp=datetime.today(),
         tags=[tag]
     )
     assert exp.tags[0].name == "food"
