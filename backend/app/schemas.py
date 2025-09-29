@@ -1,3 +1,4 @@
+# File: backend/app/schemas.py
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, date
@@ -19,10 +20,13 @@ class ExpenseBase(BaseModel):
     tags: Optional[List[str]] = []
 
 class ExpenseCreate(ExpenseBase):
-    timestamp: Optional[date] = None  # date only
+    timestamp: Optional[datetime] = None  # accept full datetime
     type: Optional[str] = "expense"
 
 class Expense(ExpenseBase):
     id: str
-    timestamp: date  # date only
+    timestamp: datetime  # datetime in responses
     tags: List[Tag]
+
+    class Config:
+        orm_mode = True

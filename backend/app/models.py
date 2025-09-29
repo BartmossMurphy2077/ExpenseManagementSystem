@@ -1,11 +1,11 @@
-from sqlalchemy import Column, String, Float, Date, Table, ForeignKey  # change DateTime -> Date
+# File: backend/app/models.py
+from sqlalchemy import Column, String, Float, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship, declarative_base
 import uuid
-from datetime import date  # import date instead of datetime
+from datetime import datetime
 
 Base = declarative_base()
 
-# Many-to-many relationship stays the same
 expense_tag_table = Table(
     "expense_tags",
     Base.metadata,
@@ -18,8 +18,8 @@ class Expense(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
-    timestamp = Column(Date, default=date.today)  # store only date
-    type = Column(String, default="expense")  # expense or inflow
+    timestamp = Column(DateTime, default=datetime.utcnow)  # store full datetime
+    type = Column(String, default="expense")
     tags = relationship("Tag", secondary=expense_tag_table, back_populates="expenses")
 
 class Tag(Base):

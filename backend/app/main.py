@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime, date
+from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from app import models, schemas, crud
@@ -15,6 +16,20 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Expense Manager API")
+
+# Allow frontend to access backend
+origins = [
+    "http://localhost:3000",  # if running frontend locally
+    "http://frontend"         # if using Docker Compose service name
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Dependency
 def get_db():
