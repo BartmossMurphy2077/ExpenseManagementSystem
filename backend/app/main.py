@@ -1,26 +1,35 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from datetime import datetime, date
+from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from app import models, schemas, crud
 
-db_path = os.environ.get("SQLITE_DB_PATH", "./data/expenses.db")
+# --- Ensure data directory exists ---
+data_dir = "./data"
+os.makedirs(data_dir, exist_ok=True)
+
+# --- Database path ---
+db_path = os.path.join(data_dir, "expenses.db")
 DATABASE_URL = f"sqlite:///{db_path}"
 
+# --- Create engine and session ---
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-models.Base.metadata.create_all(bind=engine)
+# --- Create tables if database does not exist ---
+if not os.path.exists(db_path):
+    models.Base.metadata.create_all(bind=engine)
 
+# --- FastAPI app setup ---
 app = FastAPI(title="Expense Manager API")
 
 # Allow frontend to access backend
 origins = [
-    "http://localhost:3000",  # if running frontend locally
-    "http://frontend"         # if using Docker Compose service name
+    "http://localhost:3000",
+    "http://frontend"
 ]
 
 app.add_middleware(
@@ -31,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency
+# --- Dependency ---
 def get_db():
     db = SessionLocal()
     try:
@@ -39,6 +48,7 @@ def get_db():
     finally:
         db.close()
 
+# --- Routes ---
 @app.get("/expenses", response_model=list[schemas.Expense])
 def list_expenses(db: Session = Depends(get_db)):
     return crud.get_expenses(db)
