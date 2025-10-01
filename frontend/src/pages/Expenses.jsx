@@ -1,6 +1,8 @@
+// File: frontend/src/pages/Expenses.jsx
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import ExpenseForm from "../components/ExpenseForm";
+import ExpenseList from "../components/ExpenseList";
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
@@ -50,40 +52,9 @@ export default function Expenses() {
     boxSizing: "border-box",
   };
 
-  const header = {
-    marginBottom: "1.5rem",
-    textAlign: "center",
-  };
-
-  const title = {
-    fontSize: "1.5rem",
-    marginBottom: "0.25rem",
-    color: "#0f172a",
-  };
-
-  const subtitle = {
-    fontSize: "0.95rem",
-    color: "#64748b",
-  };
-
-  const list = {
-    listStyle: "none",
-    padding: 0,
-    marginTop: "1rem",
-  };
-
-  const listItem = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0.5rem 0",
-    borderBottom: "1px solid #e2e8f0",
-  };
-
-  const buttons = {
-    display: "flex",
-    gap: "0.5rem",
-  };
+  const header = { marginBottom: "1.5rem", textAlign: "center" };
+  const title = { fontSize: "1.5rem", marginBottom: "0.25rem", color: "#0f172a" };
+  const subtitle = { fontSize: "0.95rem", color: "#64748b" };
 
   const cancelBtn = {
     marginTop: "0.5rem",
@@ -110,41 +81,12 @@ export default function Expenses() {
           </button>
         )}
 
-        <ul style={list}>
-          {expenses.map((exp) => (
-            <li key={exp.id} style={listItem}>
-              <span>{exp.title} – ${exp.amount}</span>
-              <div style={buttons}>
-                <button
-                  style={{
-                    background: "#3b82f6",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "0.3rem 0.6rem",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setEditing(exp)}
-                >
-                  Edit
-                </button>
-                <button
-                  style={{
-                    background: "#ef4444",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "0.3rem 0.6rem",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => handleDelete(exp.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {/* Use ExpenseList here */}
+        <ExpenseList
+          expenses={expenses}
+          onEdit={setEditing}
+          onDelete={handleDelete}
+        />
       </div>
     </div>
   );
