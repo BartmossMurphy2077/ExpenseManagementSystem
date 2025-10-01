@@ -25,7 +25,7 @@ def test_expense_response_schema():
         tags=[tag]
     )
     assert exp.tags[0].name == "food"
-    assert exp.dict()["title"] == "Groceries"
+    assert exp.model_dump()["title"] == "Groceries"
 
 def test_invalid_expense_amount():
     with pytest.raises(ValueError):

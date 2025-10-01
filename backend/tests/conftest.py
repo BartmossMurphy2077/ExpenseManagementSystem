@@ -2,6 +2,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import Base
+from app import models, crud, schemas
+from datetime import datetime
 
 # In-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -18,3 +20,14 @@ def db():
         yield session
     finally:
         session.close()
+
+@pytest.fixture(scope="function")
+def test_user(db):
+    """Creates a test user for each test function."""
+    user_data = schemas.UserCreate(
+        username="testuser",
+        email="test@example.com",
+        password="testpassword"
+    )
+    user = crud.create_user(db, user_data)
+    return user
