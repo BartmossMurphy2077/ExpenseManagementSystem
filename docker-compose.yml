@@ -9,7 +9,7 @@ services:
     volumes:
       - ./backend/data:/app/data
     env_file:
-      - ./backend/.env   # <-- add this line
+      - ./backend/.env
 
   frontend:
     build: ./frontend

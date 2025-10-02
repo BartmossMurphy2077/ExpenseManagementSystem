@@ -11,8 +11,8 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent  # this is /backend
-DOTENV_PATH = BASE_DIR / ".env"                     # /backend/.env
+BASE_DIR = Path(__file__).resolve().parent.parent
+DOTENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(dotenv_path=DOTENV_PATH)
 
