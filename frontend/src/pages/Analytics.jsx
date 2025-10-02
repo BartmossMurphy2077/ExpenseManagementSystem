@@ -1,7 +1,8 @@
 // File: frontend/src/pages/Analytics.jsx
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Pie, Bar } from "react-chartjs-2";
+import { Pie } from "react-chartjs-2";
+import ChartBar from "../components/ChartBar";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -31,64 +32,17 @@ export default function Analytics() {
   });
 
   const sortedMonths = Object.keys(monthlySpending).sort();
-  const monthlyData = {
-    labels: sortedMonths.map(month => {
-      const [year, monthNum] = month.split('-');
-      const date = new Date(year, monthNum - 1);
-      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    }),
-    datasets: [{
-      label: 'Monthly Spending',
-      data: sortedMonths.map(month => monthlySpending[month]),
-      backgroundColor: 'rgba(102, 126, 234, 0.8)',
-      borderColor: 'rgba(102, 126, 234, 1)',
-      borderWidth: 2,
-      borderRadius: 6,
-    }]
-  };
 
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: 'white',
-        bodyColor: 'white',
-        cornerRadius: 8,
-        callbacks: {
-          label: (context) => {
-            const amount = new Intl.NumberFormat("en", {
-              style: "currency",
-              currency: "USD"
-            }).format(context.parsed.y);
-            return `Spent: ${amount}`;
-          },
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)',
-        },
-        ticks: {
-          callback: function(value) {
-            return '$' + value.toLocaleString();
-          }
-        }
-      },
-      x: {
-        grid: {
-          display: false,
-        },
-      }
-    },
-  };
+  // Prepare data for ChartBar component
+  const monthlyChartData = sortedMonths.map(month => {
+    const [year, monthNum] = month.split('-');
+    const date = new Date(year, monthNum - 1);
+    const title = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return {
+      title,
+      amount: monthlySpending[month]
+    };
+  });
 
   // Calculate tag sums and counts
   const tagSums = {};
@@ -269,7 +223,7 @@ export default function Analytics() {
             <div style={chartContainer}>
               <h3 style={chartTitle}>Monthly Spending Trends</h3>
               <div style={chartBox}>
-                <Bar data={monthlyData} options={barOptions} />
+                <ChartBar data={monthlyChartData} />
               </div>
             </div>
 
