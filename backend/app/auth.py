@@ -7,7 +7,19 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from . import models, schemas
 
-SECRET_KEY = "your-secret-key-change-in-production"
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent  # this is /backend
+DOTENV_PATH = BASE_DIR / ".env"                     # /backend/.env
+
+load_dotenv(dotenv_path=DOTENV_PATH)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError(f"SECRET_KEY not set! Make sure {DOTENV_PATH} exists and contains SECRET_KEY.")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
