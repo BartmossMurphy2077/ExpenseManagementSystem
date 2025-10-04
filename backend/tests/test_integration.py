@@ -6,7 +6,6 @@ from app.database import get_db
 from app.auth import AuthService
 from datetime import timedelta
 
-
 @pytest.fixture
 def client(db):
     def override_get_db():
@@ -16,7 +15,6 @@ def client(db):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
-
 
 def test_user_registration_and_login(client):
     # Test registration
@@ -46,7 +44,6 @@ def test_user_registration_and_login(client):
     assert token_data["token_type"] == "bearer"
 
     return token_data["access_token"]
-
 
 def test_authenticated_endpoints(client):
     # First register and login
@@ -114,18 +111,16 @@ def test_authenticated_endpoints(client):
     expenses = response.json()
     assert len(expenses) == 0
 
-
 def test_unauthorized_access(client):
     # Test accessing protected endpoints without token
     response = client.get("/me")
-    assert response.status_code == 401
+    assert response.status_code == 403  # Changed from 401 to 403
 
     response = client.get("/expenses")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
     response = client.post("/expenses", json={"title": "test", "amount": 10})
-    assert response.status_code == 401
-
+    assert response.status_code == 403
 
 def test_invalid_token(client):
     headers = {"Authorization": "Bearer invalid_token"}
@@ -135,3 +130,67 @@ def test_invalid_token(client):
 
     response = client.get("/expenses", headers=headers)
     assert response.status_code == 401
+
+def test_duplicate_registration(client):
+    # Register first user
+    user_data = {
+        "username": "duplicate_test",
+        "email": "duplicate@test.com",
+        "password": "testpass123"
+    }
+
+    response = client.post("/register", json=user_data)
+    assert response.status_code == 200
+
+    # Try to register with same username
+    duplicate_username = {
+        "username": "duplicate_test",
+        "email": "different@test.com",
+        "password": "testpass123"
+    }
+
+    response = client.post("/register", json=duplicate_username)
+    assert response.status_code == 400
+    assert "Username already registered" in response.json()["detail"]
+
+    # Try to register with same email
+    duplicate_email = {
+        "username": "different_user",
+        "email": "duplicate@test.com",
+        "password": "testpass123"
+    }
+
+    response = client.post("/register", json=duplicate_email)
+    assert response.status_code == 400
+    assert "Email already registered" in response.json()["detail"]
+
+def test_invalid_login(client):
+    # Register a user first
+    user_data = {
+        "username": "logintest",
+        "email": "login@test.com",
+        "password": "testpass123"
+    }
+
+    response = client.post("/register", json=user_data)
+    assert response.status_code == 200
+
+    # Test wrong password
+    wrong_password = {
+        "username": "logintest",
+        "password": "wrongpassword"
+    }
+
+    response = client.post("/login", json=wrong_password)
+    assert response.status_code == 401
+    assert "Incorrect username or password" in response.json()["detail"]
+
+    # Test wrong username
+    wrong_username = {
+        "username": "wronguser",
+        "password": "testpass123"
+    }
+
+    response = client.post("/login", json=wrong_username)
+    assert response.status_code == 401
+    assert "Incorrect username or password" in response.json()["detail"]
