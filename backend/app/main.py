@@ -1,28 +1,16 @@
-# File: backend/app/main.py
 from fastapi import FastAPI, Depends, HTTPException, Query, status
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
 from datetime import date, timedelta
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from sqlalchemy.orm import Session
 
 from app import models, schemas, crud, auth
-
-# --- Database setup ---
-data_dir = "./data"
-os.makedirs(data_dir, exist_ok=True)
-db_path = os.path.join(data_dir, "expenses.db")
-DATABASE_URL = f"sqlite:///{db_path}"
-
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-if not os.path.exists(db_path):
-    models.Base.metadata.create_all(bind=engine)
+from app.database import get_db
+from app.config import settings
 
 # --- FastAPI app setup ---
 app = FastAPI(title="Expense Manager API")
 
+# CORS configuration
 origins = [
     "http://localhost:3000",
     "http://frontend"
@@ -36,12 +24,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Create a dependency function that properly handles auth
+def get_current_user_with_db(
+    credentials = Depends(auth.security),
+    db: Session = Depends(get_db)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    user_id = auth.AuthService.verify_token(credentials.credentials)
+    if user_id is None:
+        raise credentials_exception
+
+    user = auth.AuthService.get_user_by_id(db, user_id)
+    if user is None:
+        raise credentials_exception
+
+    return user
 
 # --- Auth Routes ---
 @app.post("/register", response_model=schemas.User)
@@ -61,20 +63,20 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = auth.create_access_token(
         data={"sub": user.id}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/me", response_model=schemas.User)
-def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
+def read_users_me(current_user: models.User = Depends(get_current_user_with_db)):
     return current_user
 
 @app.put("/me", response_model=schemas.User)
 def update_user_profile(
     user_data: schemas.UserUpdate,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     updated_user = crud.update_user(db, current_user.id, user_data)
@@ -85,7 +87,7 @@ def update_user_profile(
 # --- Expense Routes ---
 @app.get("/expenses", response_model=list[schemas.Expense])
 def list_expenses(
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     return crud.get_expenses(db, current_user.id)
@@ -93,7 +95,7 @@ def list_expenses(
 @app.post("/expenses", response_model=schemas.Expense)
 def add_expense(
     expense: schemas.ExpenseCreate,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     return crud.create_expense(db, expense, current_user.id)
@@ -102,7 +104,7 @@ def add_expense(
 def list_expenses_in_range(
     start_date: date = Query(..., description="Start date YYYY-MM-DD"),
     end_date: date = Query(..., description="End date YYYY-MM-DD"),
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     return crud.get_expenses_in_range(db, start_date, end_date, current_user.id)
@@ -110,7 +112,7 @@ def list_expenses_in_range(
 @app.get("/expenses/{expense_id}", response_model=schemas.Expense)
 def get_expense(
     expense_id: str,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     expense = crud.get_expense(db, expense_id, current_user.id)
@@ -122,7 +124,7 @@ def get_expense(
 def update_expense(
     expense_id: str,
     expense: schemas.ExpenseCreate,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     updated = crud.update_expense(db, expense_id, expense, current_user.id)
@@ -133,7 +135,7 @@ def update_expense(
 @app.delete("/expenses/{expense_id}", response_model=schemas.Expense)
 def delete_expense(
     expense_id: str,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     deleted = crud.delete_expense(db, expense_id, current_user.id)

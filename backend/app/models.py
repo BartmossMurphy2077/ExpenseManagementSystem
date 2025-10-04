@@ -1,4 +1,3 @@
-# File: backend/app/models.py
 from sqlalchemy import Column, String, Float, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship, declarative_base
 import uuid
