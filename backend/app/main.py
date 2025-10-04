@@ -1,4 +1,3 @@
-# backend/app/main.py
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from datetime import date, timedelta
 from fastapi.middleware.cors import CORSMiddleware
