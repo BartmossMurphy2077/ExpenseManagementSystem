@@ -1,28 +1,17 @@
-# File: backend/app/main.py
+# backend/app/main.py
 from fastapi import FastAPI, Depends, HTTPException, Query, status
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
 from datetime import date, timedelta
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from sqlalchemy.orm import Session
 
 from app import models, schemas, crud, auth
-
-# --- Database setup ---
-data_dir = "./data"
-os.makedirs(data_dir, exist_ok=True)
-db_path = os.path.join(data_dir, "expenses.db")
-DATABASE_URL = f"sqlite:///{db_path}"
-
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-if not os.path.exists(db_path):
-    models.Base.metadata.create_all(bind=engine)
+from app.database import get_db
+from app.config import settings
 
 # --- FastAPI app setup ---
 app = FastAPI(title="Expense Manager API")
 
+# CORS configuration
 origins = [
     "http://localhost:3000",
     "http://frontend"
@@ -35,13 +24,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # --- Auth Routes ---
 @app.post("/register", response_model=schemas.User)
@@ -61,7 +43,7 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = auth.create_access_token(
         data={"sub": user.id}, expires_delta=access_token_expires
     )
