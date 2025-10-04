@@ -25,6 +25,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Create a dependency function that properly handles auth
+def get_current_user_with_db(
+    credentials = Depends(auth.security),
+    db: Session = Depends(get_db)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    user_id = auth.AuthService.verify_token(credentials.credentials)
+    if user_id is None:
+        raise credentials_exception
+
+    user = auth.AuthService.get_user_by_id(db, user_id)
+    if user is None:
+        raise credentials_exception
+
+    return user
+
 # --- Auth Routes ---
 @app.post("/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -50,13 +71,13 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/me", response_model=schemas.User)
-def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
+def read_users_me(current_user: models.User = Depends(get_current_user_with_db)):
     return current_user
 
 @app.put("/me", response_model=schemas.User)
 def update_user_profile(
     user_data: schemas.UserUpdate,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     updated_user = crud.update_user(db, current_user.id, user_data)
@@ -67,7 +88,7 @@ def update_user_profile(
 # --- Expense Routes ---
 @app.get("/expenses", response_model=list[schemas.Expense])
 def list_expenses(
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     return crud.get_expenses(db, current_user.id)
@@ -75,7 +96,7 @@ def list_expenses(
 @app.post("/expenses", response_model=schemas.Expense)
 def add_expense(
     expense: schemas.ExpenseCreate,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     return crud.create_expense(db, expense, current_user.id)
@@ -84,7 +105,7 @@ def add_expense(
 def list_expenses_in_range(
     start_date: date = Query(..., description="Start date YYYY-MM-DD"),
     end_date: date = Query(..., description="End date YYYY-MM-DD"),
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     return crud.get_expenses_in_range(db, start_date, end_date, current_user.id)
@@ -92,7 +113,7 @@ def list_expenses_in_range(
 @app.get("/expenses/{expense_id}", response_model=schemas.Expense)
 def get_expense(
     expense_id: str,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     expense = crud.get_expense(db, expense_id, current_user.id)
@@ -104,7 +125,7 @@ def get_expense(
 def update_expense(
     expense_id: str,
     expense: schemas.ExpenseCreate,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     updated = crud.update_expense(db, expense_id, expense, current_user.id)
@@ -115,7 +136,7 @@ def update_expense(
 @app.delete("/expenses/{expense_id}", response_model=schemas.Expense)
 def delete_expense(
     expense_id: str,
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user_with_db),
     db: Session = Depends(get_db)
 ):
     deleted = crud.delete_expense(db, expense_id, current_user.id)

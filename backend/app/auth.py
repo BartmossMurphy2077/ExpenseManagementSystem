@@ -48,12 +48,18 @@ class AuthService:
 
 def get_current_user(
         credentials: HTTPAuthorizationCredentials = Depends(security),
+        db: Session = Depends(lambda: None)
 ) -> models.User:
     # Import here to avoid circular import
     from .database import get_db
 
-    # Get database session
-    db = next(get_db())
+    # Get database session - this will use the overridden dependency in tests
+    if db is None:
+        db_session = next(get_db())
+        close_session = True
+    else:
+        db_session = db
+        close_session = False
 
     try:
         credentials_exception = HTTPException(
@@ -66,13 +72,14 @@ def get_current_user(
         if user_id is None:
             raise credentials_exception
 
-        user = AuthService.get_user_by_id(db, user_id)
+        user = AuthService.get_user_by_id(db_session, user_id)
         if user is None:
             raise credentials_exception
 
         return user
     finally:
-        db.close()
+        if close_session:
+            db_session.close()
 
 
 # Backward compatibility functions

@@ -3,20 +3,30 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.database import get_db
-from app.auth import AuthService
-from datetime import timedelta
+from app.auth import get_current_user
+from app import models, crud
+from sqlalchemy.orm import Session
+
 
 @pytest.fixture
 def client(db):
     def override_get_db():
         yield db
 
+    def override_get_current_user():
+        # This will be set by individual tests when needed
+        return getattr(client, '_test_user', None)
+
     app.dependency_overrides[get_db] = override_get_db
+
     with TestClient(app) as test_client:
         yield test_client
+
     app.dependency_overrides.clear()
 
-def test_user_registration_and_login(client):
+
+def create_test_user_and_login(client, db):
+    """Helper function to create user and return token"""
     # Test registration
     user_data = {
         "username": "integrationtest",
@@ -45,9 +55,16 @@ def test_user_registration_and_login(client):
 
     return token_data["access_token"]
 
-def test_authenticated_endpoints(client):
+
+def test_user_registration_and_login(client, db):
+    # Just test the registration and login process
+    token = create_test_user_and_login(client, db)
+    assert token is not None
+
+
+def test_authenticated_endpoints(client, db):
     # First register and login
-    token = test_user_registration_and_login(client)
+    token = create_test_user_and_login(client, db)
     headers = {"Authorization": f"Bearer {token}"}
 
     # Test /me endpoint
@@ -111,10 +128,11 @@ def test_authenticated_endpoints(client):
     expenses = response.json()
     assert len(expenses) == 0
 
-def test_unauthorized_access(client):
+
+def test_unauthorized_access(client, db):
     # Test accessing protected endpoints without token
     response = client.get("/me")
-    assert response.status_code == 403  # Changed from 401 to 403
+    assert response.status_code == 403
 
     response = client.get("/expenses")
     assert response.status_code == 403
@@ -122,7 +140,8 @@ def test_unauthorized_access(client):
     response = client.post("/expenses", json={"title": "test", "amount": 10})
     assert response.status_code == 403
 
-def test_invalid_token(client):
+
+def test_invalid_token(client, db):
     headers = {"Authorization": "Bearer invalid_token"}
 
     response = client.get("/me", headers=headers)
@@ -131,7 +150,8 @@ def test_invalid_token(client):
     response = client.get("/expenses", headers=headers)
     assert response.status_code == 401
 
-def test_duplicate_registration(client):
+
+def test_duplicate_registration(client, db):
     # Register first user
     user_data = {
         "username": "duplicate_test",
@@ -164,7 +184,8 @@ def test_duplicate_registration(client):
     assert response.status_code == 400
     assert "Email already registered" in response.json()["detail"]
 
-def test_invalid_login(client):
+
+def test_invalid_login(client, db):
     # Register a user first
     user_data = {
         "username": "logintest",
