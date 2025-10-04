@@ -48,7 +48,7 @@ cd ExpenseManagementSystem/backend
 venv\Scripts\activate  # On Windows
 # source venv/bin/activate  # On macOS/Linux
 pip install -r requirements.txt
-pytest -v
+pytest -v --cov
 ```
 ### Running the Application
 - To run:
@@ -70,42 +70,53 @@ sequenceDiagram
     participant U as User
     participant FE as Frontend (React)
     participant BE as Backend (FastAPI)
-    participant DB as Database (SQLite)
+    participant DB as Database (SQLite/Postgres)
+
+    %% --- Register Flow ---
+    U->>FE: Enter username, email, password
+    FE->>BE: POST /register
+    BE->>DB: Insert new user (hashed password)
+    DB-->>BE: New User
+    BE-->>FE: User created
+    FE-->>U: Registration successful
 
     %% --- Login Flow ---
     U->>FE: Enter username & password
-    FE->>BE: POST /login (username, password)
+    FE->>BE: POST /login
     BE->>DB: Verify user credentials
     DB-->>BE: User record
     BE-->>FE: JWT access_token
-    FE-->>U: User logged in (token stored in client)
+    FE-->>U: Store token locally
 
-    %% --- Expenses Flow ---
-    U->>FE: View Expenses Page
-    FE->>BE: GET /expenses (Authorization: Bearer token)
-    BE->>DB: Fetch expenses for current_user
+    %% --- Authenticated Request (expenses example) ---
+    U->>FE: Open Expenses page
+    FE->>BE: GET /expenses (Authorization: Bearer <token>)
+    BE->>BE: Verify JWT (AuthService.verify_token)
+    BE->>DB: Fetch expenses for user_id from token
     DB-->>BE: Expense list
     BE-->>FE: JSON list of expenses
-    FE-->>U: Show expense list
+    FE-->>U: Display expenses
 
+    %% --- CRUD Expense ---
     U->>FE: Add/Edit/Delete Expense
-    FE->>BE: POST/PUT/DELETE /expenses (with Bearer token)
-    BE->>DB: Create/Update/Delete expense
-    DB-->>BE: Success/Updated record
-    BE-->>FE: Updated expenses
-    FE-->>U: UI refreshes
+    FE->>BE: POST/PUT/DELETE /expenses (Bearer token)
+    BE->>BE: Verify JWT
+    BE->>DB: Apply changes
+    DB-->>BE: Success / updated record
+    BE-->>FE: Updated expense data
+    FE-->>U: UI updates
 
-    %% --- Analytics Flow ---
-    U->>FE: View Analytics Page
-    FE->>BE: GET /expenses/range?start=...&end=... (with token)
-    BE->>DB: Query expenses by user and date range
+    %% --- Analytics ---
+    U->>FE: View Analytics
+    FE->>BE: GET /expenses/range (Bearer token)
+    BE->>BE: Verify JWT
+    BE->>DB: Query expenses by date range
     DB-->>BE: Matching expenses
-    BE-->>FE: JSON data
-    FE-->>U: Render charts (bar, pie)
+    BE-->>FE: JSON stats
+    FE-->>U: Charts (bar, pie)
+
 ```
-
 ### ER Diagram
-
 ```mermaid
 erDiagram
     USER {
@@ -137,7 +148,7 @@ erDiagram
     }
 
     USER ||--o{ EXPENSE : "owns"
-    USER ||--o{ TAG : "defines"
-    EXPENSE ||--o{ EXPENSE_TAGS : "tagged with"
-    TAG ||--o{ EXPENSE_TAGS : "applies to"
+    USER ||--o{ TAG : "creates"
+    EXPENSE ||--o{ EXPENSE_TAGS : "can have"
+    TAG ||--o{ EXPENSE_TAGS : "associated with"
 ```
