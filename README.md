@@ -33,14 +33,23 @@ Manage your expenses, track spending over time, and visualize analytics with int
 ### Prerequisites
 
 - Docker
-- Docker Compose 
-- 
+- Docker Compose
+
 ### Configure environment variables:**
    ```bash
    cd ExpenseManagementSystem/backend
    cp .env.example .env
    ```
 - Modify `.env` as needed (e.g., change `SECRET_KEY` for JWT)
+
+### Running tests
+```bash
+cd ExpenseManagementSystem/backend
+venv\Scripts\activate  # On Windows
+# source venv/bin/activate  # On macOS/Linux
+pip install -r requirements.txt
+pytest -v
+```
 ### Running the Application
 - To run:
 ```bash
