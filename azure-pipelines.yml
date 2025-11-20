@@ -1,5 +1,6 @@
-# Docker + Deploy to Azure App Service
-# Trigger: main branch
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
 
 trigger:
 - main
@@ -9,48 +10,20 @@ resources:
 
 variables:
   tag: '$(Build.BuildId)'
-  imageName: 'expensemanagementsystem:$(tag)'  # Local Docker image name
 
 stages:
 - stage: Build
-  displayName: Build Docker Image
+  displayName: Build image
   jobs:
   - job: Build
     displayName: Build
     pool:
-      name: Default    # <-- Self-hosted agent
+      name: Default    # <-- Your self-hosted agent pool
     steps:
     - task: Docker@2
-      displayName: Build Docker Image
+      displayName: Build an image
       inputs:
         command: build
         dockerfile: '$(Build.SourcesDirectory)/backend/Dockerfile'
         tags: |
           $(tag)
-
-- stage: Deploy
-  displayName: Deploy to Azure App Service
-  dependsOn: Build
-  jobs:
-  - job: Deploy
-    displayName: Deploy
-    pool:
-      name: Default    # <-- Self-hosted agent
-    steps:
-    - task: AzureCLI@2
-      displayName: Deploy Docker Image to App Service
-      inputs:
-        azureSubscription: 'azure-appservice-connection'   # Your Managed Identity service connection
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          echo "Deploying Docker image $(imageName) to App Service..."
-          
-          # Update the App Service container to use the newly built image
-          az webapp config container set \
-            --name ExpenseManagementSystem \
-            --resource-group BCSAI2025-DEVOPS-STUDENTS-A \
-            --docker-custom-image-name $(imageName) \
-            --docker-registry-server-url ""
-          
-          echo "Deployment complete!"
