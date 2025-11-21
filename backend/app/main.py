@@ -142,3 +142,8 @@ def delete_expense(
     if not deleted:
         raise HTTPException(status_code=404, detail="Expense not found")
     return deleted
+
+@app.get("/health", tags=["Health"])
+def health():
+    return {"status": "ok"}
+

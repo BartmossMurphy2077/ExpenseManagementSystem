@@ -35,7 +35,7 @@ Manage your expenses, track spending over time, and visualize analytics with int
 - Docker
 - Docker Compose
 
-### Configure environment variables:**
+### Configure environment variables:
    ```bash
    cd ExpenseManagementSystem/backend
    cp .env.example .env
