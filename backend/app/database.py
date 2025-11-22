@@ -1,15 +1,20 @@
+import os
+from typing import Generator, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from abc import ABC, abstractmethod
-from typing import Generator
-import os
+
 from .models import Base
+from .config import settings
+
+# Use settings.database_url if present; otherwise compose from db pieces (fallback)
+DATABASE_URL = settings.database_url
 
 
 class DatabaseConfig(ABC):
     @abstractmethod
     def get_engine(self):
-        pass
+        raise NotImplementedError
 
 
 class SQLiteConfig(DatabaseConfig):
@@ -24,27 +29,25 @@ class SQLiteConfig(DatabaseConfig):
 
     def get_engine(self):
         database_url = f"sqlite:///{self.db_path}"
-        return create_engine(
-            database_url,
-            connect_args={"check_same_thread": False}
-        )
+        return create_engine(database_url, connect_args={"check_same_thread": False}, future=True)
 
 
 class PostgreSQLConfig(DatabaseConfig):
-    def __init__(self, host: str, port: str, database: str, username: str, password: str):
-        self.connection_string = f"postgresql://{username}:{password}@{host}:{port}/{database}"
+    def __init__(self, url: str):
+        self.url = url
 
     def get_engine(self):
-        return create_engine(self.connection_string)
+        return create_engine(self.url, future=True)
 
 
 class DatabaseManager:
-    def __init__(self, config: DatabaseConfig):
-        self.engine = config.get_engine()
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+    def __init__(self, engine):
+        self.engine = engine
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine, future=True)
         self._create_tables()
 
     def _create_tables(self):
+        # For simple local apps using SQLite this is fine; for production use migrations (Alembic)
         Base.metadata.create_all(bind=self.engine)
 
     def get_db(self) -> Generator[Session, None, None]:
@@ -55,6 +58,17 @@ class DatabaseManager:
             db.close()
 
 
-# Default configuration
-db_manager = DatabaseManager(SQLiteConfig())
+# Factory: pick engine from settings.database_url
+if DATABASE_URL.startswith("sqlite"):
+    # try to extract path from URL (sqlite:///./data/expenses.db)
+    # fallback to default path
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    config = SQLiteConfig(db_path=db_path)
+    engine = config.get_engine()
+else:
+    # For postgres and others, use the full URL
+    config = PostgreSQLConfig(url=DATABASE_URL)
+    engine = config.get_engine()
+
+db_manager = DatabaseManager(engine)
 get_db = db_manager.get_db
