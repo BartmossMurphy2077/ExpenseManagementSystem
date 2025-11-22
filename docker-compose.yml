@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   backend:
     build:
@@ -12,12 +14,11 @@ services:
     env_file:
       - ./backend/.env
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
-
+      start_period: 30s
   frontend:
     build: ./frontend
     container_name: expense_frontend

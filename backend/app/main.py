@@ -1,6 +1,7 @@
 import logging
 from datetime import date, timedelta, datetime
 from typing import Optional
+import os
 
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -181,23 +182,35 @@ def delete_expense(
 def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, description="Run full health checks including write-test")):
     """
     Health endpoint:
-      - basic DB read (SELECT 1)
+      - basic DB read (SELECT 1) or SQLite file existence
       - optional write test (CREATE TEMP TABLE / DROP) if ?full=true
 
     Returns JSON with status and details.
     """
-    details = {"timestamp": datetime.utcnow().isoformat(), "database": {"read": False, "write": "skipped"}}
-    try:
-        # Lightweight read check
-        db.execute("SELECT 1")
-        details["database"]["read"] = True
-    except Exception as e:
-        logger.exception("Database read check failed: %s", e)
-        details["database"]["read"] = False
-        return {"status": "unhealthy", **details}
+    from .config import settings
 
+    details = {"timestamp": datetime.utcnow().isoformat(), "database": {"read": False, "write": "skipped"}}
+
+    # SQLite check
+    if settings.database_url.startswith("sqlite"):
+        db_path = settings.database_url.replace("sqlite:///", "")
+        if os.path.isfile(db_path):
+            details["database"]["read"] = True
+        else:
+            details["database"]["read"] = False
+            return {"status": "unhealthy", **details}
+    else:
+        # Try lightweight DB read
+        try:
+            db.execute("SELECT 1")
+            details["database"]["read"] = True
+        except Exception as e:
+            logger.exception("Database read check failed: %s", e)
+            details["database"]["read"] = False
+            return {"status": "unhealthy", **details}
+
+    # Optional write test
     if full:
-        # Try a tiny write operation for write permissions (works on SQLite and others).
         try:
             db.execute("CREATE TEMP TABLE IF NOT EXISTS health_check_temp (id INTEGER)")
             db.execute("DROP TABLE IF EXISTS health_check_temp")
@@ -210,3 +223,4 @@ def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, de
         details["database"]["write"] = "skipped"
 
     return {"status": "ok", **details}
+
