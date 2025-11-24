@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}  # Use a real secret from GitHub Secrets
+      SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars-long"
 
     steps:
       - name: Checkout
@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: compose
-          path: docker-compose.azure.yml
+          path: docker-compose.yml
 
   deploy:
     runs-on: ubuntu-latest
@@ -79,9 +79,4 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.WEB_APP_NAME }}
-          configuration-file: docker-compose.azure.yml
-          # Inject environment variables directly into the container
-          app-settings: |
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            ALGORITHM=HS256
-            ACCESS_TOKEN_EXPIRE_MINUTES=30
+          configuration-file: docker-compose.yml

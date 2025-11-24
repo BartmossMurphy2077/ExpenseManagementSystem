@@ -1,16 +1,12 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from pathlib import Path
 from typing import Optional
-import os
-
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
     secret_key: str = Field(..., env="SECRET_KEY")
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    algorithm: str = Field(default="HS256", env="ALGORITHM")
+    access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     # Default to in-container path for Docker deployments
     database_url: str = Field(
@@ -26,9 +22,7 @@ class Settings(BaseSettings):
     db_password: Optional[str] = ""
 
     class Config:
-        env_file = BASE_DIR / ".env"
-        env_file_encoding = "utf-8"
-        # Allow env vars to override .env file
+        # Read from environment variables only
         case_sensitive = False
 
     @classmethod
