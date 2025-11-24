@@ -14,8 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SECRET_KEY: test-secret-key-for-ci-at-least-32-chars-long
-      DATABASE_URL: sqlite:///:memory:
+      SECRET_KEY: "test-secret-key-for-ci-at-least-32-chars-long"
 
     steps:
       - name: Checkout
