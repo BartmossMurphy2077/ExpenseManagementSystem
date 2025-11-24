@@ -1,4 +1,4 @@
-name: Test, Build and Deploy Multi-Container App to Azure
+name: Test, Build and Deploy to Azure
 
 on:
   push:
@@ -54,41 +54,55 @@ jobs:
           docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:latest .
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:latest
 
-      - name: Upload Azure compose file
-        uses: actions/upload-artifact@v4
-        with:
-          name: compose
-          path: docker-compose.azure.yml
-
-  deploy:
+  deploy-backend:
     runs-on: ubuntu-latest
     needs: test-build-push
     environment: production
 
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: compose
-
       - name: Azure login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set Web App environment variables
+      - name: Set Backend Web App settings
         run: |
           az webapp config appsettings set \
-            --name ${{ secrets.WEB_APP_NAME }} \
+            --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --settings \
-              ACR_LOGIN_SERVER=${{ secrets.ACR_LOGIN_SERVER }} \
-              SECRET_KEY=${{ secrets.SECRET_KEY }} \
-              DOCKER_REGISTRY_SERVER_URL=https://${{ secrets.ACR_LOGIN_SERVER }} \
-              DOCKER_REGISTRY_SERVER_USERNAME=${{ secrets.ACR_USERNAME }} \
-              DOCKER_REGISTRY_SERVER_PASSWORD=${{ secrets.ACR_PASSWORD }}
+              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              DATABASE_URL="sqlite:////home/data/expenses.db" \
+              ALGORITHM="HS256" \
+              ACCESS_TOKEN_EXPIRE_MINUTES="30"
 
-      - name: Deploy to Azure Web App
+      - name: Deploy Backend to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ secrets.WEB_APP_NAME }}
-          configuration-file: docker-compose.azure.yml
+          app-name: ${{ secrets.BACK_END_WEBAPP_NAME }}
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/expense_backend:latest
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: test-build-push
+    environment: production
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set Frontend Web App settings
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --settings \
+              VITE_API_URL="https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net"
+
+      - name: Deploy Frontend to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.FRONT_END_WEBAPP_NAME }}
+          images: ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:latest
