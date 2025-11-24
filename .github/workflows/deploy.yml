@@ -70,11 +70,7 @@ jobs:
           az webapp config appsettings set \
             --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --settings \
-              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
-              DATABASE_URL="sqlite:////home/data/expenses.db" \
-              ALGORITHM="HS256" \
-              ACCESS_TOKEN_EXPIRE_MINUTES="30"
+            --settings SECRET_KEY="${{ secrets.SECRET_KEY }}" DATABASE_URL="sqlite:////home/data/expenses.db" ALGORITHM="HS256" ACCESS_TOKEN_EXPIRE_MINUTES="30"
 
       - name: Deploy Backend to Azure Web App
         uses: azure/webapps-deploy@v2
@@ -98,8 +94,7 @@ jobs:
           az webapp config appsettings set \
             --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --settings \
-              VITE_API_URL="https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net"
+            --settings VITE_API_URL="https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net"
 
       - name: Deploy Frontend to Azure Web App
         uses: azure/webapps-deploy@v2

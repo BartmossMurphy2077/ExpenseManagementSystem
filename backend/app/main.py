@@ -21,7 +21,8 @@ app = FastAPI(title="Expense Manager API")
 # CORS configuration
 origins = [
     "http://localhost:3000",
-    "http://frontend"
+    "http://frontend",
+    f"https://{os.getenv('FRONT_END_WEBAPP_NAME', '')}.azurewebsites.net"
 ]
 
 app.add_middleware(
