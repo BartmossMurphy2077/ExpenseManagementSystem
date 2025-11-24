@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: compose
-          path: docker-compose.yml
+          path: docker-compose.azure.yml
 
   deploy:
     runs-on: ubuntu-latest
@@ -79,6 +79,4 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.WEB_APP_NAME }}
-          images: |
-            ${{ secrets.ACR_LOGIN_SERVER }}/expense_backend:latest
-            ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:latest
+          configuration-file: docker-compose.azure.yml
