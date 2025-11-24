@@ -19,7 +19,8 @@ app = FastAPI(title="Expense Manager API")
 origins = [
     "http://localhost:3000",
     "http://frontend",
-    "https://frontend-expensemanagement-fnh4bud6h0hjdfg9.westeurope-01.azurewebsites.net"
+    "https://frontend-expensemanagement-fnh4bud6h0hjdfg9.westeurope-01.azurewebsites.net",
+    "https://backend-expensemanagement-chgae9auc4b4hfh7.westeurope-01.azurewebsites.net"
 ]
 
 app.add_middleware(
@@ -29,6 +30,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.on_event("startup")
