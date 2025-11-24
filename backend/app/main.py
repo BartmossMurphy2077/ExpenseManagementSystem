@@ -33,15 +33,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Instrumentation for Prometheus (install prometheus-fastapi-instrumentator)
+
 @app.on_event("startup")
-def startup_instrumentation():
+def startup_event():
+    """Initialize database and Prometheus on startup"""
+    # 1. Create database tables
+    from .database import engine, Base
+    from . import models  # Import models to register tables
+
+    logger.info(f"Initializing database at {settings.database_url}")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+
+    # 2. Prometheus instrumentation (optional)
     try:
         Instrumentator().instrument(app).expose(app, "/metrics")
         logger.info("Prometheus Instrumentator enabled at /metrics")
     except Exception as e:
-        # Instrumentation is optional; do not crash app if not available
-        logger.warning("Prometheus Instrumentator not enabled: %s", e)
+        logger.warning(f"Prometheus Instrumentator not enabled: {e}")
 
 
 # Create a dependency function that properly handles auth
@@ -182,46 +195,47 @@ def delete_expense(
 @app.get("/health", tags=["Health"])
 def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, description="Run full health checks including write-test")):
     """
-    Health endpoint:
-      - basic DB read (SELECT 1) or SQLite file existence
-      - optional write test (CREATE TEMP TABLE / DROP) if ?full=true
-
-    Returns JSON with status and details.
+    Health endpoint with database verification.
     """
     from .config import settings
+    from sqlalchemy import inspect
 
-    details = {"timestamp": datetime.utcnow().isoformat(), "database": {"read": False, "write": "skipped"}}
+    details = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": {"read": False, "write": "skipped", "tables": []}
+    }
 
-    # SQLite check
-    if settings.database_url.startswith("sqlite"):
-        db_path = settings.database_url.replace("sqlite:///", "")
-        if os.path.isfile(db_path):
-            details["database"]["read"] = True
-        else:
-            details["database"]["read"] = False
-            return {"status": "unhealthy", **details}
-    else:
-        # Try lightweight DB read
-        try:
-            db.execute("SELECT 1")
-            details["database"]["read"] = True
-        except Exception as e:
-            logger.exception("Database read check failed: %s", e)
-            details["database"]["read"] = False
-            return {"status": "unhealthy", **details}
+    # Check if tables exist
+    try:
+        inspector = inspect(db.bind)
+        table_names = inspector.get_table_names()
+        details["database"]["tables"] = table_names
+        details["database"]["read"] = len(table_names) > 0
+        logger.info(f"Database health check: found {len(table_names)} tables")
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        raise HTTPException(status_code=503, detail=f"Database not healthy: {str(e)}")
 
     # Optional write test
     if full:
         try:
-            db.execute("CREATE TEMP TABLE IF NOT EXISTS health_check_temp (id INTEGER)")
-            db.execute("DROP TABLE IF EXISTS health_check_temp")
+            # Try creating a test user (rollback immediately)
+            from app import models
+            test_user = models.User(
+                username=f"health_test_{datetime.utcnow().timestamp()}",
+                email=f"test_{datetime.utcnow().timestamp()}@example.com",
+                password_hash="test"
+            )
+            db.add(test_user)
+            db.flush()
+            db.rollback()
             details["database"]["write"] = "ok"
+            logger.info("Database write test passed")
         except Exception as e:
-            logger.exception("Database write check failed: %s", e)
-            details["database"]["write"] = "failed"
-            return {"status": "degraded", **details}
-    else:
-        details["database"]["write"] = "skipped"
+            logger.error(f"Database write test failed: {e}")
+            details["database"]["write"] = f"failed: {str(e)}"
+            raise HTTPException(status_code=503, detail=f"Database write failed: {str(e)}")
 
     return {"status": "ok", **details}
+
 
