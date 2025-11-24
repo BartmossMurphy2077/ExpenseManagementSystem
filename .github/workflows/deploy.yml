@@ -73,21 +73,11 @@ jobs:
 
       - name: Set Backend Web App settings
         run: |
-          az webapp config appsettings set \
-            --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --settings \
-              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
-              DATABASE_URL="sqlite:////home/data/expenses.db" \
-              ALGORITHM="HS256" \
-              ACCESS_TOKEN_EXPIRE_MINUTES="30" \
-              WEBSITES_PORT="8000"
+          az webapp config appsettings set --name "${{ secrets.BACK_END_WEBAPP_NAME }}" --resource-group "${{ secrets.RESOURCE_GROUP }}" --settings SECRET_KEY="${{ secrets.SECRET_KEY }}" DATABASE_URL="sqlite:////home/data/expenses.db" ALGORITHM="HS256" ACCESS_TOKEN_EXPIRE_MINUTES="30" WEBSITES_PORT="8000"
 
       - name: Restart Backend
         run: |
-          az webapp restart \
-            --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }}
+          az webapp restart --name "${{ secrets.BACK_END_WEBAPP_NAME }}" --resource-group "${{ secrets.RESOURCE_GROUP }}"
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -108,15 +98,9 @@ jobs:
 
       - name: Set Frontend Web App settings
         run: |
-          az webapp config appsettings set \
-            --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --settings \
-              VITE_API_URL="https://backend-expensemanagement-chgae9auc4b4hfh7.westeurope-01.azurewebsites.net" \
-              WEBSITES_PORT="80"
+          az webapp config appsettings set --name "${{ secrets.FRONT_END_WEBAPP_NAME }}" --resource-group "${{ secrets.RESOURCE_GROUP }}" --settings VITE_API_URL="https://backend-expensemanagement-chgae9auc4b4hfh7.westeurope-01.azurewebsites.net" WEBSITES_PORT="80"
 
       - name: Restart Frontend
         run: |
-          az webapp restart \
-            --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }}
+          az webapp restart --name "${{ secrets.FRONT_END_WEBAPP_NAME }}" --resource-group "${{ secrets.RESOURCE_GROUP }}"
+  
