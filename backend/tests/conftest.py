@@ -1,11 +1,9 @@
 import os
+import sys
 
 # MUST be set before any app imports
 os.environ["SECRET_KEY"] = "test-secret-key-for-ci-at-least-32-chars-long"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
-import pytest
-from sqlalchemy import create_engine
 
 import pytest
 from sqlalchemy import create_engine
@@ -39,7 +37,6 @@ def db_session(db_engine):
 
 @pytest.fixture(scope="function")
 def client(db_session):
-    # Override the get_db dependency
     def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
