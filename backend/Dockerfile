@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y curl && apt-get clean
 
 COPY ./app ./app
 
-# Create persistent data directory inside container
-RUN mkdir -p /app/data && chmod 777 /app/data
+# Use /home for Azure Web Apps persistence
+RUN mkdir -p /home/data && chmod 777 /home/data
 
 EXPOSE 8000
 

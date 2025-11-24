@@ -3,30 +3,19 @@ version: "3.9"
 services:
   backend:
     image: ${ACR_LOGIN_SERVER}/expense_backend:latest
-    container_name: expense_backend
     ports:
       - "8000:8000"
     environment:
       SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: sqlite:////app/data/expenses.db
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      DATABASE_URL: sqlite:////home/data/expenses.db
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    restart: always
 
   frontend:
     image: ${ACR_LOGIN_SERVER}/expense_frontend:latest
-    container_name: expense_frontend
     ports:
       - "80:80"
     environment:
-      VITE_API_URL: http://backend:8000
-    depends_on:
-      backend:
-        condition: service_healthy
-
-volumes:
-  backend-data:
-    driver: local
+      VITE_API_URL: http://localhost:8000
+    restart: always
