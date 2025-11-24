@@ -2,25 +2,26 @@ version: "3.9"
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${ACR_LOGIN_SERVER}/expense_backend:latest
     container_name: expense_backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/data
-      - ./backend/.env:/app/.env:ro
-    env_file:
-      - ./backend/.env
+      - /home/data:/app/data        # persistent storage in Azure
+    environment:
+      # Move sensitive variables from .env to Azure App Configuration
+      # Example:
+      # SECRET_KEY: "xxx"
+      # DATABASE_URL: "xxx"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+
   frontend:
-    build: ./frontend
+    image: ${ACR_LOGIN_SERVER}/expense_frontend:latest
     container_name: expense_frontend
     ports:
       - "3000:80"
