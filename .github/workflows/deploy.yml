@@ -65,18 +65,29 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set Backend Web App settings
-        run: |
-          az webapp config appsettings set \
-            --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --settings SECRET_KEY="${{ secrets.SECRET_KEY }}" DATABASE_URL="sqlite:////home/data/expenses.db" ALGORITHM="HS256" ACCESS_TOKEN_EXPIRE_MINUTES="30"
-
       - name: Deploy Backend to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.BACK_END_WEBAPP_NAME }}
           images: ${{ secrets.ACR_LOGIN_SERVER }}/expense_backend:latest
+
+      - name: Set Backend Web App settings
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --settings \
+              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              DATABASE_URL="sqlite:////home/data/expenses.db" \
+              ALGORITHM="HS256" \
+              ACCESS_TOKEN_EXPIRE_MINUTES="30" \
+              WEBSITES_PORT="8000"
+
+      - name: Restart Backend
+        run: |
+          az webapp restart \
+            --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }}
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -89,15 +100,23 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set Frontend Web App settings
-        run: |
-          az webapp config appsettings set \
-            --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --settings VITE_API_URL="https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net"
-
       - name: Deploy Frontend to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.FRONT_END_WEBAPP_NAME }}
           images: ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:latest
+
+      - name: Set Frontend Web App settings
+        run: |
+          az webapp config appsettings set \
+            --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --settings \
+              VITE_API_URL="https://backend-expensemanagement-chgae9auc4b4hfh7.westeurope-01.azurewebsites.net" \
+              WEBSITES_PORT="80"
+
+      - name: Restart Frontend
+        run: |
+          az webapp restart \
+            --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }}
