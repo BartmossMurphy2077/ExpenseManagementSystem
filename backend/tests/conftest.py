@@ -1,53 +1,46 @@
-# backend/tests/conftest.py
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import Base
-from app import models, crud, schemas
-from app.database import DatabaseConfig, DatabaseManager
-from datetime import datetime
+from app.database import Base, get_db
+from app.main import app
+from fastapi.testclient import TestClient
 import uuid
 
+# Use an in-memory SQLite database for tests
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
-class TestDatabaseConfig(DatabaseConfig):
-    def __init__(self):
-        # Use unique database for each test run
-        self.db_name = f"test_{uuid.uuid4().hex}.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    def get_engine(self):
-        return create_engine(
-            f"sqlite:///{self.db_name}",
-            connect_args={"check_same_thread": False}
-        )
-
-
-@pytest.fixture(scope="function")
-def db():
-    """Creates a fresh database for each test function."""
-    config = TestDatabaseConfig()
-    db_manager = DatabaseManager(config)
-    session = next(db_manager.get_db())
-    try:
-        yield session
-    finally:
-        session.close()
-        db_manager.engine.dispose()
-        # Clean up database file
-        import os
-        if os.path.exists(config.db_name):
-            try:
-                os.unlink(config.db_name)
-            except PermissionError:
-                pass
-
+@pytest.fixture(scope="session")
+def db_engine():
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="function")
-def test_user(db):
-    """Creates a test user for each test function."""
-    user_data = schemas.UserCreate(
-        username="testuser",
-        email="test@example.com",
-        password="testpassword"
-    )
-    user = crud.UserCRUD.create_user(db, user_data)
-    return user
+def db_session(db_engine):
+    connection = db_engine.connect()
+    transaction = connection.begin()
+    session = TestingSessionLocal(bind=connection)
+    yield session
+    session.close()
+    transaction.rollback()
+    connection.close()
+
+@pytest.fixture(scope="function")
+def client(db_session):
+    # Override the get_db dependency
+    def override_get_db():
+        yield db_session
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as c:
+        yield c
+
+@pytest.fixture
+def test_user():
+    return {
+        "username": f"user_{uuid.uuid4().hex[:8]}",
+        "email": f"user_{uuid.uuid4().hex[:8]}@example.com",
+        "password": "password123"
+    }

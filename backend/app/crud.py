@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from . import models, schemas
 from .auth import AuthService
 from datetime import datetime, date, time
@@ -14,9 +15,16 @@ class UserCRUD:
             password_hash=hashed_password
         )
         db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return db_user
+        try:
+            db.commit()
+            db.refresh(db_user)
+            return db_user
+        except IntegrityError:
+            db.rollback()
+            raise
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
@@ -46,9 +54,13 @@ class UserCRUD:
         if user_data.password:
             user.password_hash = AuthService.get_password_hash(user_data.password)
 
-        db.commit()
-        db.refresh(user)
-        return user
+        try:
+            db.commit()
+            db.refresh(user)
+            return user
+        except Exception:
+            db.rollback()
+            raise
 
 class ExpenseCRUD:
     @staticmethod
@@ -64,7 +76,7 @@ class ExpenseCRUD:
 
     @staticmethod
     def create_expense(db: Session, expense: schemas.ExpenseCreate, user_id: str) -> models.Expense:
-        tag_objects = TagCRUD._get_or_create_tags(db, expense.tags, user_id)
+        tag_objects = TagCRUD._get_or_create_tags(db, expense.tags or [], user_id)
         timestamp = ExpenseCRUD._parse_timestamp(expense.timestamp)
 
         db_expense = models.Expense(
@@ -77,9 +89,13 @@ class ExpenseCRUD:
         )
 
         db.add(db_expense)
-        db.commit()
-        db.refresh(db_expense)
-        return db_expense
+        try:
+            db.commit()
+            db.refresh(db_expense)
+            return db_expense
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def update_expense(db: Session, expense_id: str, expense_data: schemas.ExpenseCreate, user_id: str) -> Optional[models.Expense]:
@@ -97,9 +113,13 @@ class ExpenseCRUD:
         if expense_data.timestamp is not None:
             expense.timestamp = ExpenseCRUD._parse_timestamp(expense_data.timestamp)
 
-        db.commit()
-        db.refresh(expense)
-        return expense
+        try:
+            db.commit()
+            db.refresh(expense)
+            return expense
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def get_expenses_in_range(db: Session, start_date: date, end_date: date, user_id: str) -> List[models.Expense]:
@@ -117,8 +137,12 @@ class ExpenseCRUD:
     def delete_expense(db: Session, expense_id: str, user_id: str) -> Optional[models.Expense]:
         expense = ExpenseCRUD.get_expense(db, expense_id, user_id)
         if expense:
-            db.delete(expense)
-            db.commit()
+            try:
+                db.delete(expense)
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
         return expense
 
     @staticmethod
@@ -141,6 +165,12 @@ class TagCRUD:
             if not tag:
                 tag = models.Tag(name=tag_name, user_id=user_id)
                 db.add(tag)
+                # flush to populate relationships if necessary
+                try:
+                    db.flush()
+                except Exception:
+                    db.rollback()
+                    raise
             tag_objects.append(tag)
         return tag_objects
 

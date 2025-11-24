@@ -12,6 +12,7 @@ expense_tag_table = Table(
     Column("tag_id", String, ForeignKey("tags.id"))
 )
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -19,7 +20,8 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    expenses = relationship("Expense", back_populates="user")
+    expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")
+
 
 class Expense(Base):
     __tablename__ = "expenses"
@@ -31,6 +33,7 @@ class Expense(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     user = relationship("User", back_populates="expenses")
     tags = relationship("Tag", secondary=expense_tag_table, back_populates="expenses")
+
 
 class Tag(Base):
     __tablename__ = "tags"

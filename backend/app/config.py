@@ -1,40 +1,43 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from pathlib import Path
+from typing import Optional
 import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    secret_key: str
+    # required
+    secret_key: str = Field(..., env="SECRET_KEY")
+
+    # JWT
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    database_url: str = "sqlite:///./data/expenses.db"
 
-    # Database specific settings
-    db_type: str = "sqlite"
-    db_host: str = "localhost"
-    db_port: str = "5432"
-    db_name: str = "expenses"
-    db_user: str = "postgres"
-    db_password: str = ""
+    # Database URL, prefer DATABASE_URL if provided
+    database_url: str = Field("sqlite:///./data/expenses.db", env="DATABASE_URL")
+
+    # Backwards-compatible database pieces if someone uses them
+    db_type: Optional[str] = "sqlite"
+    db_host: Optional[str] = "localhost"
+    db_port: Optional[str] = "5432"
+    db_name: Optional[str] = "expenses"
+    db_user: Optional[str] = "postgres"
+    db_password: Optional[str] = ""
 
     class Config:
-        env_file = Path(__file__).parent.parent / ".env"
+        env_file = BASE_DIR / ".env"
+        env_file_encoding = "utf-8"
 
     @classmethod
-    def load_settings(cls):
-        # Load from .env file first, then from environment variables
-        base_dir = Path(__file__).resolve().parent.parent
-        dotenv_path = base_dir / ".env"
-
-        if dotenv_path.exists():
-            from dotenv import load_dotenv
-            load_dotenv(dotenv_path=dotenv_path)
-
+    def load_settings(cls) -> "Settings":
+        # Pydantic BaseSettings automatically reads from env and the env_file declared above.
+        # Keeping a loader for explicitness and for tests.
         return cls()
 
 
 settings = Settings.load_settings()
 
-# Validate required settings
 if not settings.secret_key:
     raise ValueError("SECRET_KEY must be set in environment variables or .env file")

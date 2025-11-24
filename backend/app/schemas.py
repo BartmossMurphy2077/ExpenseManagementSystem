@@ -23,7 +23,7 @@ class User(UserBase):
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class UserLogin(BaseModel):
@@ -48,7 +48,7 @@ class Tag(TagBase):
     id: str
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class ExpenseBase(BaseModel):
@@ -68,4 +68,4 @@ class Expense(ExpenseBase):
     tags: List[Tag]
 
     class Config:
-        from_attributes = True
+        orm_mode = True
