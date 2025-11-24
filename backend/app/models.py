@@ -1,9 +1,13 @@
 from sqlalchemy import Column, String, Float, DateTime, Table, ForeignKey
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship, DeclarativeBase
 import uuid
 from datetime import datetime
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Base class for all database models"""
+    pass
+
 
 expense_tag_table = Table(
     "expense_tags",

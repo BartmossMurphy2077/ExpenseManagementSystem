@@ -7,18 +7,15 @@ from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from prometheus_fastapi_instrumentator import Instrumentator  # optional dependency
-
 from app import models, schemas, crud, auth
 from app.database import get_db
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# --- FastAPI app setup ---
 app = FastAPI(title="Expense Manager API")
 
-# CORS configuration
 origins = [
     "http://localhost:3000",
     "http://frontend",
@@ -37,11 +34,18 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     """Initialize database and Prometheus on startup"""
-    # 1. Create database tables
-    from .database import engine, Base
-    from . import models  # Import models to register tables
+    from app.database import engine
+    from app.models import Base
 
     logger.info(f"Initializing database at {settings.database_url}")
+
+    # Ensure directory exists (critical for Azure)
+    db_path = settings.database_url.replace("sqlite:///", "")
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"Created database directory: {db_dir}")
+
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created successfully")
@@ -49,33 +53,29 @@ def startup_event():
         logger.error(f"Failed to initialize database: {e}")
         raise
 
-    # 2. Prometheus instrumentation (optional)
+    # Prometheus (optional)
     try:
+        from prometheus_fastapi_instrumentator import Instrumentator
         Instrumentator().instrument(app).expose(app, "/metrics")
-        logger.info("Prometheus Instrumentator enabled at /metrics")
+        logger.info("Prometheus enabled at /metrics")
+    except ImportError:
+        logger.info("Prometheus not installed, skipping instrumentation")
     except Exception as e:
-        logger.warning(f"Prometheus Instrumentator not enabled: {e}")
+        logger.warning(f"Prometheus setup failed: {e}")
 
 
-# Create a dependency function that properly handles auth
 def get_current_user_with_db(
-    credentials=Depends(auth.security),
-    db: Session = Depends(get_db)
+        credentials=Depends(auth.security),
+        db: Session = Depends(get_db)
 ) -> models.User:
-    """
-    Use AuthService to verify token and fetch user from DB.
-    This centralizes authentication logic and improves testability.
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
+    """Dependency that returns authenticated user with database session."""
     user = auth.AuthService.get_authenticated_user(db, credentials.credentials)
     if user is None:
-        raise credentials_exception
-
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
@@ -116,9 +116,9 @@ def read_users_me(current_user: models.User = Depends(get_current_user_with_db))
 
 @app.put("/me", response_model=schemas.User)
 def update_user_profile(
-    user_data: schemas.UserUpdate,
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        user_data: schemas.UserUpdate,
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     updated_user = crud.update_user(db, current_user.id, user_data)
     if not updated_user:
@@ -129,36 +129,36 @@ def update_user_profile(
 # --- Expense Routes ---
 @app.get("/expenses", response_model=list[schemas.Expense])
 def list_expenses(
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     return crud.get_expenses(db, current_user.id)
 
 
 @app.post("/expenses", response_model=schemas.Expense)
 def add_expense(
-    expense: schemas.ExpenseCreate,
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        expense: schemas.ExpenseCreate,
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     return crud.create_expense(db, expense, current_user.id)
 
 
 @app.get("/expenses/range", response_model=list[schemas.Expense])
 def list_expenses_in_range(
-    start_date: date = Query(..., description="Start date YYYY-MM-DD"),
-    end_date: date = Query(..., description="End date YYYY-MM-DD"),
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        start_date: date = Query(..., description="Start date YYYY-MM-DD"),
+        end_date: date = Query(..., description="End date YYYY-MM-DD"),
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     return crud.get_expenses_in_range(db, start_date, end_date, current_user.id)
 
 
 @app.get("/expenses/{expense_id}", response_model=schemas.Expense)
 def get_expense(
-    expense_id: str,
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        expense_id: str,
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     expense = crud.get_expense(db, expense_id, current_user.id)
     if not expense:
@@ -168,10 +168,10 @@ def get_expense(
 
 @app.put("/expenses/{expense_id}", response_model=schemas.Expense)
 def update_expense(
-    expense_id: str,
-    expense: schemas.ExpenseCreate,
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        expense_id: str,
+        expense: schemas.ExpenseCreate,
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     updated = crud.update_expense(db, expense_id, expense, current_user.id)
     if not updated:
@@ -181,9 +181,9 @@ def update_expense(
 
 @app.delete("/expenses/{expense_id}", response_model=schemas.Expense)
 def delete_expense(
-    expense_id: str,
-    current_user: models.User = Depends(get_current_user_with_db),
-    db: Session = Depends(get_db)
+        expense_id: str,
+        current_user: models.User = Depends(get_current_user_with_db),
+        db: Session = Depends(get_db)
 ):
     deleted = crud.delete_expense(db, expense_id, current_user.id)
     if not deleted:
@@ -193,11 +193,8 @@ def delete_expense(
 
 # --- Health check ---
 @app.get("/health", tags=["Health"])
-def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, description="Run full health checks including write-test")):
-    """
-    Health endpoint with database verification.
-    """
-    from .config import settings
+def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False)):
+    """Health endpoint with database verification."""
     from sqlalchemy import inspect
 
     details = {
@@ -205,7 +202,6 @@ def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, de
         "database": {"read": False, "write": "skipped", "tables": []}
     }
 
-    # Check if tables exist
     try:
         inspector = inspect(db.bind)
         table_names = inspector.get_table_names()
@@ -216,11 +212,8 @@ def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, de
         logger.error(f"Database health check failed: {e}")
         raise HTTPException(status_code=503, detail=f"Database not healthy: {str(e)}")
 
-    # Optional write test
     if full:
         try:
-            # Try creating a test user (rollback immediately)
-            from app import models
             test_user = models.User(
                 username=f"health_test_{datetime.utcnow().timestamp()}",
                 email=f"test_{datetime.utcnow().timestamp()}@example.com",
@@ -237,5 +230,3 @@ def health(db: Session = Depends(get_db), full: Optional[bool] = Query(False, de
             raise HTTPException(status_code=503, detail=f"Database write failed: {str(e)}")
 
     return {"status": "ok", **details}
-
-

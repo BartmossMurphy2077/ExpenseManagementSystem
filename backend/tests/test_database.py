@@ -1,14 +1,9 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
 from app import crud, models, schemas
-from app.database import Base
-from fastapi import HTTPException
+from app.models import Base
 
-# -------------------------
-# Test Database Setup
-# -------------------------
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
@@ -16,9 +11,9 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 @pytest.fixture(scope="function")
 def db():
-    # Create tables
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
     try:
@@ -27,9 +22,7 @@ def db():
         session.close()
         Base.metadata.drop_all(bind=engine)
 
-# -------------------------
-# UserCRUD Tests
-# -------------------------
+
 def test_create_user_success(db):
     user_in = schemas.UserCreate(username="testuser", email="test@example.com", password="password")
     user = crud.create_user(db, user_in)
@@ -37,10 +30,11 @@ def test_create_user_success(db):
     assert user.email == "test@example.com"
     assert user.password_hash is not None
 
+
 def test_create_user_invalid_email(db):
-    # Should raise a validation error because Pydantic validates email
     with pytest.raises(ValueError):
         schemas.UserCreate(username="test", email="invalid-email", password="pass")
+
 
 def test_get_user_by_username(db):
     user_in = schemas.UserCreate(username="alice", email="alice@example.com", password="pass")
@@ -49,15 +43,16 @@ def test_get_user_by_username(db):
     assert user is not None
     assert user.username == "alice"
 
+
 def test_authenticate_user(db):
     user_in = schemas.UserCreate(username="bob", email="bob@example.com", password="secret")
     crud.create_user(db, user_in)
     user = crud.authenticate_user(db, "bob", "secret")
     assert user is not None
     assert user.username == "bob"
-    # Wrong password
     user_fail = crud.authenticate_user(db, "bob", "wrong")
     assert user_fail is None
+
 
 def test_update_user(db):
     user_in = schemas.UserCreate(username="carol", email="carol@example.com", password="pass")
@@ -67,9 +62,7 @@ def test_update_user(db):
     assert updated_user.username == "carol_new"
     assert updated_user.email == "carol_new@example.com"
 
-# -------------------------
-# ExpenseCRUD Tests
-# -------------------------
+
 def test_create_expense(db):
     user_in = schemas.UserCreate(username="dave", email="dave@example.com", password="pass")
     user = crud.create_user(db, user_in)
@@ -81,13 +74,15 @@ def test_create_expense(db):
     assert len(expense.tags) == 1
     assert expense.tags[0].name == "food"
 
+
 def test_get_expenses(db):
     user_in = schemas.UserCreate(username="eve", email="eve@example.com", password="pass")
     user = crud.create_user(db, user_in)
-    expense1 = crud.create_expense(db, schemas.ExpenseCreate(title="Coffee", amount=3), user.id)
-    expense2 = crud.create_expense(db, schemas.ExpenseCreate(title="Book", amount=15), user.id)
+    crud.create_expense(db, schemas.ExpenseCreate(title="Coffee", amount=3), user.id)
+    crud.create_expense(db, schemas.ExpenseCreate(title="Book", amount=15), user.id)
     expenses = crud.get_expenses(db, user.id)
     assert len(expenses) == 2
+
 
 def test_update_expense(db):
     user_in = schemas.UserCreate(username="frank", email="frank@example.com", password="pass")
@@ -97,12 +92,12 @@ def test_update_expense(db):
     assert updated.title == "Snack2"
     assert updated.amount == 6
 
+
 def test_delete_expense(db):
     user_in = schemas.UserCreate(username="grace", email="grace@example.com", password="pass")
     user = crud.create_user(db, user_in)
     expense = crud.create_expense(db, schemas.ExpenseCreate(title="Tea", amount=2), user.id)
     deleted = crud.delete_expense(db, expense.id, user.id)
     assert deleted.id == expense.id
-    # Ensure it's actually deleted
     expenses = crud.get_expenses(db, user.id)
     assert all(e.id != expense.id for e in expenses)
