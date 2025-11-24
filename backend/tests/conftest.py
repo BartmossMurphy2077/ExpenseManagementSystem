@@ -1,3 +1,12 @@
+import os
+
+# MUST be set before any app imports
+os.environ["SECRET_KEY"] = "test-secret-key-for-ci-at-least-32-chars-long"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
+import pytest
+from sqlalchemy import create_engine
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

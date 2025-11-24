@@ -32,9 +32,8 @@ jobs:
       - name: Run backend tests
         working-directory: ./backend
         env:
-          # Required env variables for Settings class
-          SECRET_KEY: "test-secret"
-          DATABASE_URL: "sqlite:///test.db"
+          SECRET_KEY: "test-secret-key-for-ci"
+          DATABASE_URL: "sqlite:///:memory:"
         run: pytest
 
       # ----------- Login to ACR -----------
