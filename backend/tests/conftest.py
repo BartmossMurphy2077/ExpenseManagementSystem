@@ -1,3 +1,9 @@
+import os
+
+# Set test environment variables BEFORE any app imports
+os.environ["SECRET_KEY"] = "test-secret-key-for-ci-at-least-32-chars-long"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -6,7 +12,6 @@ from app.main import app
 from fastapi.testclient import TestClient
 import uuid
 
-# Use an in-memory SQLite database for tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
@@ -30,7 +35,6 @@ def db_session(db_engine):
 
 @pytest.fixture(scope="function")
 def client(db_session):
-    # Override the get_db dependency
     def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db

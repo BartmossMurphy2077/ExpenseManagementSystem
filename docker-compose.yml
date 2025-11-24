@@ -9,23 +9,31 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/data
-      - ./backend/.env:/app/.env:ro
-    env_file:
-      - ./backend/.env
+      # Use named volume instead of bind mount for persistence
+      - backend-data:/app/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=sqlite:////app/data/expenses.db
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+
   frontend:
     build: ./frontend
     container_name: expense_frontend
     ports:
       - "3000:80"
     environment:
-      VITE_API_URL: http://backend:8000
+      - VITE_API_URL=http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  backend-data:
+    driver: local
