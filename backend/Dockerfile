@@ -19,6 +19,5 @@ EXPOSE 8000
 
 ENV PYTHONPATH=/app
 
-# Initialize database BEFORE starting the server
-CMD python -c "from app.database import engine; from app.models import Base; Base.metadata.create_all(bind=engine)" && \
-    uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Simple CMD - let FastAPI's startup event handle DB initialization
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
