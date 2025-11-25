@@ -54,7 +54,7 @@ jobs:
         working-directory: ./frontend
         run: |
           docker build \
-            --build-arg VITE_API_URL=https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net \
+            --build-arg VITE_API_URL=${{ secrets.BACKEND_URL }} \
             --no-cache \
             -t ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:${{ github.sha }} .
           docker tag ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:${{ github.sha }} ${{ secrets.ACR_LOGIN_SERVER }}/expense_frontend:latest
@@ -96,17 +96,12 @@ jobs:
               SCM_DO_BUILD_DURING_DEPLOYMENT="false" \
               WEBSITES_ENABLE_APP_SERVICE_STORAGE="true"
 
-      - name: Configure Backend CORS and Health Check
+      - name: Configure Backend CORS
         run: |
           az webapp cors add \
             --name ${{ secrets.BACK_END_WEBAPP_NAME }} \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --allowed-origins "https://${{ secrets.FRONT_END_WEBAPP_NAME }}.azurewebsites.net"
-          
-          az monitor app-insights component update \
-            --app ${{ secrets.BACK_END_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.RESOURCE_GROUP }} \
-            --query-timeout 120 || echo "App Insights not configured, skipping..."
+            --allowed-origins "${{ secrets.FRONTEND_URL }}" || echo "CORS already configured"
 
       - name: Restart Backend
         run: |
@@ -118,7 +113,7 @@ jobs:
         run: |
           echo "Waiting 30 seconds for backend to start..."
           sleep 30
-          curl -f https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net/health || echo "Health check failed, but continuing..."
+          curl -f ${{ secrets.BACKEND_URL }}/health || echo "Health check failed, but continuing..."
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -147,7 +142,7 @@ jobs:
             --name ${{ secrets.FRONT_END_WEBAPP_NAME }} \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --settings \
-              VITE_API_URL="https://${{ secrets.BACK_END_WEBAPP_NAME }}.azurewebsites.net" \
+              VITE_API_URL="${{ secrets.BACKEND_URL }}" \
               WEBSITES_PORT="80" \
               SCM_DO_BUILD_DURING_DEPLOYMENT="false"
 
