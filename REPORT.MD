@@ -110,15 +110,6 @@ The updated test suite produced the following coverage:
 | `tests/test_schemas.py`     | 10             | 0           | 100%         |
 | **TOTAL**                   | **653**        | **111**     | **83%**      |
 
-### Coverage Gaps
-
-- **`app/main.py` (56%)**: Remaining gaps are in startup event error branches and some route exception handlers. These are typically exercised in full integration/e2e tests against running containers.
-- **`app/auth.py` (74%)**: Some JWT error paths (malformed tokens) are not fully covered. Consider adding negative tests for invalid token formats.
-- **`app/crud.py` (78%)**: Tag creation edge cases (duplicate tags with different users) and some rollback branches are not fully exercised.
-- **`app/database.py` (78%)**: The `get_db()` generator's exception handling isn't fully covered; this is hard to test without simulating DB crashes.
-
-**Recommendation**: Add targeted integration tests or use mocking to simulate error conditions (DB unavailable, disk full) to increase coverage.
-
 ## Conclusion
 
 The refactoring improves maintainability, testability, and production stability by:
