@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Expense Manager API")
 
+# ✅ RESTORED YOUR ORIGINAL CORS ORIGINS
 origins = [
     "http://localhost:3000",
     "http://frontend",
@@ -31,11 +32,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ Initialize Prometheus BEFORE startup event (fixes middleware timing error)
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app, "/metrics")
+    logger.info("✅ Prometheus enabled at /metrics")
+except ImportError:
+    logger.info("⚠️ Prometheus not installed, skipping instrumentation")
+except Exception as e:
+    logger.warning(f"⚠️ Prometheus setup failed: {e}")
 
 
 @app.on_event("startup")
 def startup_event():
-    """Initialize database and Prometheus on startup"""
+    """Initialize database on startup"""
     from app.database import engine
     from app.models import Base
 
@@ -54,16 +64,6 @@ def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
-
-    # Prometheus (optional)
-    try:
-        from prometheus_fastapi_instrumentator import Instrumentator
-        Instrumentator().instrument(app).expose(app, "/metrics")
-        logger.info("Prometheus enabled at /metrics")
-    except ImportError:
-        logger.info("Prometheus not installed, skipping instrumentation")
-    except Exception as e:
-        logger.warning(f"Prometheus setup failed: {e}")
 
 
 def get_current_user_with_db(

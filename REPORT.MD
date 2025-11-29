@@ -110,6 +110,38 @@ The updated test suite produced the following coverage:
 | `tests/test_schemas.py`     | 10             | 0           | 100%         |
 | **TOTAL**                   | **653**        | **111**     | **83%**      |
 
+
+
+## Monitoring and Observability
+
+### Prometheus Integration
+
+The backend exposes Prometheus-compatible metrics for monitoring application health and performance in production environments.
+
+#### Architecture
+
+**Local Development:**
+- Prometheus runs as a separate Docker container defined in `docker-compose.yml`
+- Scrapes metrics from the backend at `http://backend:8000/metrics` every 15 seconds
+- Accessible at `http://localhost:9090` for querying and visualization
+
+**Azure Deployment:**
+- Backend exposes `/metrics` endpoint but Prometheus container is not deployed
+- Azure Web Apps don't support multi-container deployments via Docker Compose
+- `/metrics` endpoint remains accessible for external scraping or monitoring tools
+
+#### Implementation Details
+
+**Backend Instrumentation (`app/main.py`):**
+```python
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app, "/metrics")
+    logger.info("✅ Prometheus enabled at /metrics")
+except ImportError:
+    logger.info("⚠️ Prometheus not installed, skipping instrumentation")
+```
+
 ## Conclusion
 
 The refactoring improves maintainability, testability, and production stability by:
