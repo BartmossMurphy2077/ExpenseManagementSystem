@@ -76,15 +76,98 @@ This report documents improvements made to the Expense Management backend to mak
 
 ## Tests
 
-Tests were updated to:
+Tests were designed with **testability** and **isolation** as primary goals, leveraging FastAPI's dependency injection system and pytest's fixture ecosystem.
 
-- **Use the injectable `db` dependency**: Tests pass a mock or in-memory session to routes via `app.dependency_overrides`. This avoids touching the real database.
-- **Cover AuthService methods**: Added unit tests for `AuthService.create_access_token()`, `verify_token()`, and password hashing. Verified that expired tokens return `None`.
-- **Verify health endpoint behavior**: Tested both `?full=false` (read-only check) and `?full=true` (write check with rollback). Ensured the write test doesn't pollute the database.
-- **Ensure CRUD returns optionals correctly**: Tested that `get_expense()` returns `None` for non-existent IDs and that routes handle this by raising 404.
-- **Test startup DB path creation**: Used a temporary directory and verified that `os.makedirs()` is called and the directory exists before table creation.
+### Testing Strategy and Techniques
 
-**Rationale**: Dependency injection and clear interfaces made tests deterministic and fast. Coverage increased because the facade pattern and DIP made mocking straightforward.
+#### Fixtures for Test Data Management
+- **Session-scoped database fixture** (`conftest.py`): Creates an in-memory SQLite database once per test session, avoiding filesystem I/O and ensuring clean test environments.
+- **Function-scoped session fixture**: Each test gets a fresh database session wrapped in a transaction that rolls back after the test completes, preventing test pollution.
+- **`test_user` fixture**: Generates unique users per test using `uuid.uuid4()` to avoid username/email collisions when tests run in parallel.
+
+**Rationale**: Fixtures separate test data setup from test logic, making tests more readable and reducing boilerplate. The transaction rollback pattern ensures true test isolation—tests cannot affect each other even when run concurrently.
+
+#### Dependency Injection for Mocking
+- **Database session override** (`conftest.py`):
+  ```python
+  def override_get_db():
+      yield db_session
+  app.dependency_overrides[get_db] = override_get_db
+  ```
+  Tests inject a controlled in-memory session instead of the production database.
+
+- **Injectable `db` parameter in `get_current_user`** (`app/auth.py`): Accepts an optional `db` parameter for testing. Tests pass mock sessions directly, bypassing the production database entirely.
+
+**Rationale**: Dependency injection makes the codebase testable without mocking frameworks. Tests control database state precisely, ensuring deterministic results and fast execution (no network/disk I/O).
+
+#### Unit Tests for Core Logic
+- **`test_auth.py`**: Tests `AuthService` methods in isolation:
+  - Password hashing/verification (`verify_password`, `get_password_hash`)
+  - JWT token creation/validation (`create_access_token`, `verify_token`)
+  - User registration/login flows
+
+- **`test_crud.py`**: Tests CRUD operations directly:
+  - User creation, retrieval, authentication, updates
+  - Expense creation, listing, updates, deletion
+  - Tag association logic
+
+- **`test_models.py`** and **`test_schemas.py`**: Validate Pydantic schemas and SQLAlchemy models work correctly with test data.
+
+**Rationale**: Unit tests isolate business logic from HTTP concerns, making failures easier to diagnose. Testing `AuthService.verify_password()` directly is faster and clearer than sending HTTP requests through the entire stack.
+
+#### Integration Tests for End-to-End Flows
+- **`test_integration.py`**: Tests complete user journeys:
+  - Register → Login → Create Expense → List Expenses
+  - Verifies JWT authentication, database persistence, and API response formats
+
+- **`test_database.py`**: Tests database-level integration:
+  - Schema validation (e.g., invalid email formats raise errors)
+  - Foreign key relationships (expenses link to users)
+  - Transaction rollback on errors
+
+**Rationale**: Integration tests catch issues that unit tests miss—incorrect transaction handling, missing foreign keys, serialization errors. They run against the real ORM and FastAPI routing layer (using `TestClient`).
+
+#### Mocking Strategy (Implicit via DI)
+- **No explicit mocking frameworks used**: Instead of `unittest.mock.patch()`, tests inject controlled dependencies:
+  ```python
+  app.dependency_overrides[get_db] = override_get_db
+  ```
+  This replaces the production database generator with a test fixture.
+
+**Rationale**: Dependency injection makes mocking unnecessary for most cases. This avoids brittle tests that break when implementation details change (e.g., renaming a method would break `mock.patch` calls but not DI-based tests).
+
+#### Coverage-Driven Test Design
+- **100% coverage on test modules**: All fixtures, helpers, and test utilities are themselves tested.
+- **Strategic coverage gaps**:
+  - `app/main.py` (56%): Startup events, health checks, Prometheus integration not fully tested (requires Docker environment)
+  - `app/auth.py` (74%): Error paths for expired/malformed tokens tested, but some edge cases (concurrent token refreshes) deferred
+
+**Rationale**: 100% coverage isn't always valuable (testing boilerplate wastes time), but critical paths (authentication, CRUD operations, error handling) are thoroughly tested. The 83% total coverage reflects intentional focus on high-risk areas.
+
+### Test Execution and CI Integration
+- **Local execution**: `pytest -v --cov=app --cov-report=html`
+- **CI pipeline** (`.github/workflows/deploy.yml`):
+  ```yaml
+  - name: Run backend tests with coverage
+    working-directory: ./backend
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DATABASE_URL: "sqlite:///:memory:"
+    run: |
+      pytest -v --cov=app --cov-report=term --cov-report=html --cov-fail-under=70
+  ```
+  Tests run on every push to `main`, blocking deployment if coverage drops below 70%.
+
+**Rationale**: CI integration ensures tests run on every commit, catching regressions immediately. The `--cov-fail-under=70` threshold enforces minimum quality standards without requiring 100% coverage (which has diminishing returns).
+
+### Key Testing Patterns Applied
+1. **Arrange-Act-Assert (AAA)**: All tests follow this structure for readability.
+2. **Test Isolation**: Fixtures and transaction rollbacks ensure no test depends on another.
+3. **Fail-Fast**: Tests use `assert` early to catch issues before expensive operations.
+4. **Test Data Builders**: Fixtures like `test_user` generate valid test data consistently.
+
+These techniques resulted in a fast, reliable test suite that executes in under 5 seconds locally and provides confidence for continuous deployment.
+
 
 ## Coverage Report
 
